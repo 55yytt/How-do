@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<link>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>怎么办 - 时间管理助手</title>
+    <link rel="stylesheet" href="styles.css"></link>
+    <style>
+       
+    </style>
+</head>
+<body>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🌸怎么办</h1>
+            <p>记录你办成的每一件小事</p>
+        </div>
+
+        <div class="date-picker">
+            <input type="date" id="datePicker">
+            <button onclick="showToday()">今天</button>
+        </div>
+
+        <div class="todo-input-group">
+            <input type="text" id="taskInput" placeholder="输入新任务，按回车添加">
+            <button onclick="addTask()">添加</button>
+        </div>
+
+        <ul class="todo-list" id="todoList">
+            <!-- 任务项通过JavaScript动态生成 -->
+        </ul>
+
+        <div class="stats">
+            <h3>📊 今日统计</h3>
+            <p>总任务数：<span id="totalTasks">0</span></p>
+            <p>总耗时：<span id="totalTime">0</span> 分钟</p>
+        </div>
+    </div>
+
+    <script>
+        // 数据存储结构
+        let todos = JSON.parse(localStorage.getItem('pink-todos')) || {};
+        let currentDate = new Date().toISOString().split('T')[0];
+
+        // 初始化
+        document.getElementById('datePicker').value = currentDate;
+        renderTasks();
+
+        // 添加任务
+        function addTask() {
+            const input = document.getElementById('taskInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const newTask = {
+                id: Date.now(),
+                text: text,
+                created: Date.now(),
+                completed: null,
+                duration: 0
+            };
+
+            if (!todos[currentDate]) todos[currentDate] = [];
+            todos[currentDate].push(newTask);
+            saveAndRender();
+            input.value = '';
+        }
+
+        // 切换任务状态
+        function toggleTask(id) {
+            const task = todos[currentDate].find(t => t.id === id);
+            if (!task) return;
+
+            if (task.completed) {
+                task.completed = null;
+                task.duration = 0;
+            } else {
+                task.completed = Date.now();
+                task.duration = Math.round((task.completed - task.created) / 60000);
+            }
+            saveAndRender();
+        }
+
+        // 删除任务
+        function deleteTask(id) {
+            todos[currentDate] = todos[currentDate].filter(t => t.id !== id);
+            saveAndRender();
+        }
+
+        // 保存数据
+        function saveAndRender() {
+            localStorage.setItem('pink-todos', JSON.stringify(todos));
+            renderTasks();
+            updateStats();
+        }
+
+        // 渲染任务列表
+        function renderTasks() {
+            const list = document.getElementById('todoList');
+            const tasks = todos[currentDate] || [];
+            
+            list.innerHTML = tasks.map(task => `
+                <li class="todo-item ${task.completed ? 'completed' : ''}">
+                    <input type="checkbox" 
+                        ${task.completed ? 'checked' : ''}
+                        onchange="toggleTask(${task.id})">
+                    <span>${task.text}</span>
+                    <div class="time-info">
+                        ${task.completed ? 
+                            `耗时：${task.duration}分钟<br>
+                            <small>${formatTime(task.created)} - ${formatTime(task.completed)}</small>` : 
+                            `进行中...<br>
+                            <small>已进行 ${calculateLiveDuration(task.created)} 分钟</small>`
+                        }
+                    </div>
+                    <button onclick="deleteTask(${task.id})">×</button>
+                </li>
+            `).join('');
+        }
+
+        // 实时更新时间
+        function calculateLiveDuration(created) {
+            return Math.round((Date.now() - created) / 60000);
+        }
+
+        // 更新统计
+        function updateStats() {
+            const tasks = todos[currentDate] || [];
+            document.getElementById('totalTasks').textContent = tasks.length;
+            document.getElementById('totalTime').textContent = 
+                tasks.reduce((sum, t) => sum + (t.duration || 0), 0);
+        }
+
+        // 日期格式化
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('zh-CN', { 
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+        }
+
+        // 显示今天
+        function showToday() {
+            currentDate = new Date().toISOString().split('T')[0];
+            document.getElementById('datePicker').value = currentDate;
+            renderTasks();
+        }
+
+        // 初始化事件监听
+        document.getElementById('taskInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') addTask();
+        });
+
+        document.getElementById('datePicker').addEventListener('change', function() {
+            currentDate = this.value;
+            renderTasks();
+        });
+
+        // 每分钟自动刷新进行中的任务时间
+        setInterval(() => {
+            const hasActiveTasks = (todos[currentDate] || []).some(t => !t.completed);
+            if (hasActiveTasks) renderTasks();
+        }, 60000);
+        
+        
+    </script>
+    <body onload="loadFromStorage()">
+        <script>
+        function loadFromStorage() {
+          const saved = localStorage.getItem('todoData');
+          if (saved) {
+            todos = JSON.parse(saved);
+            renderTasks();
+            updateDisplayedStats();
+          }
+        }
+        
+        </script>
+        
+</body>
+</html>
